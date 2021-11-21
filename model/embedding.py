@@ -33,17 +33,20 @@ class Embedding(nn.Module):
         sum of all these features are output of BERTEmbedding
     """
 
-    def __init__(self, vocab_size, emb_dim, dropout=0.1):
+    def __init__(self, vocab_size, emb_dim, dropout=0.1, emb_weight=None):
         """
         :param vocab_size: total vocab size
         :param embed_size: embedding size of token embedding
         :param dropout: dropout rate
         """
         super().__init__()
-        self.token = nn.Embedding(vocab_size, emb_dim)
+        if emb_weight is None:
+            self.token = nn.Embedding(vocab_size, emb_dim)
+        else:
+            self.token = nn.Embedding.from_pretrained(emb_weight, freeze=False, padding_idx=0)
         self.position = PositionalEmbedding(d_model=emb_dim)
         self.dropout = nn.Dropout(p=dropout)
-        self.emb_size = emb_size
+        self.emb_dim = emb_dim
 
     def forward(self, sequence, segment_label):
         x = self.token(sequence) + self.position(sequence)
