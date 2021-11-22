@@ -7,7 +7,6 @@ import torchvision.transforms as transforms
 from tqdm import tqdm
 
 
-
 class FeedForward(nn.Module):
     def __init__(self, dim, hidden_dim, dropout = 0.):
         super().__init__()
@@ -130,7 +129,7 @@ class VisionTransformer(nn.Module):
 
         return self.mlp_head(x)
 
-def train(model, optimizer, train_loader, device, log_freq=10):
+def train(model, optimizer, train_loader, device, epoch, log_freq=10):
 
     model.train()
     model = model.to(device)
@@ -156,10 +155,11 @@ def train(model, optimizer, train_loader, device, log_freq=10):
         total_step += 1
 
         if total_step % log_freq == 0:
-            p_bar.set_description(f'train loss: {(total_loss/total_step):.4f} | train acc: {(total_correct/total_sample):.4f}')
+            p_bar.set_description(f'EPOCH{epoch} | train loss: {(total_loss/total_step):.4f} | train acc: {(total_correct/total_sample):.4f}')
+            raise Exception()
     return total_loss/total_step, total_correct/total_sample
 
-def test(model, test_loader, device, log_freq=10):
+def test(model, test_loader, device, epoch, log_freq=10):
 
     model.eval()
     model = model.to(device)
@@ -182,7 +182,7 @@ def test(model, test_loader, device, log_freq=10):
         total_step += 1
 
         if total_step % log_freq == 0:
-            p_bar.set_description(f'test loss: {(total_loss/total_step):.4f} | test acc: {(total_correct/total_sample):.4f}')
+            p_bar.set_description(f'EPOCH{epoch} | test loss: {(total_loss/total_step):.4f} | test acc: {(total_correct/total_sample):.4f}')
     return total_loss/total_step, total_correct/total_sample
 
 def get_dataloader(batch_size):
@@ -202,12 +202,12 @@ def get_dataloader(batch_size):
     trainset = torchvision.datasets.CIFAR100(root='./data', train=True,
                                             download=True, transform=transform)
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                            shuffle=True, num_workers=2)
+                                            shuffle=True, num_workers=0)
 
     testset = torchvision.datasets.CIFAR100(root='./data', train=False,
                                         download=True, transform=transform_test)
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                            shuffle=False, num_workers=2)
+                                            shuffle=False, num_workers=0)
 
     return trainloader, testloader
 
@@ -216,7 +216,7 @@ def run(epochs=20, lr=0.0005, batch_size=64):
     # classes = ('plane', 'car', 'bird', 'cat', 'deer',
     #         'dog', 'frog', 'horse', 'ship', 'truck')
 
-    train_loader, test_loader = get_dataloader()
+    train_loader, test_loader = get_dataloader(batch_size)
 
     model = VisionTransformer(
         image_size = (32, 32),
@@ -237,9 +237,9 @@ def run(epochs=20, lr=0.0005, batch_size=64):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
     best_test_acc = 0
-    for e in epochs:
-        train_loss, train_acc = train(model, optimizer, train_loader, device)
-        test_loss, test_acc = test(model, test_loader, device)
+    for e in range(epochs):
+        train_loss, train_acc = train(model, optimizer, train_loader, device, epoch=e)
+        test_loss, test_acc = test(model, test_loader, device, epoch=e)
         
         if test_acc >= best_test_acc:
             best_test_acc = test_acc
@@ -249,3 +249,4 @@ def run(epochs=20, lr=0.0005, batch_size=64):
 
     print('best testing accuracy', best_test_acc)
 
+run()
