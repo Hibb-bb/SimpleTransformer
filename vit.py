@@ -187,7 +187,7 @@ def test(model, test_loader, device, epoch, log_freq=10):
 
 def get_dataloader(batch_size):
     transform = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
+        transforms.RandomCrop(256, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.RandomGrayscale(p=0.2),
         transforms.ToTensor(),
@@ -199,12 +199,12 @@ def get_dataloader(batch_size):
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
 
-    trainset = torchvision.datasets.CIFAR100(root='./data', train=True,
+    trainset = torchvision.datasets.Places365(root='./data', split='train-standard', small=True,
                                             download=True, transform=transform)
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                             shuffle=True, num_workers=0)
 
-    testset = torchvision.datasets.CIFAR100(root='./data', train=False,
+    testset = torchvision.datasets.Places365(root='./data', split='val', small=True,
                                         download=True, transform=transform_test)
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                             shuffle=False, num_workers=0)
@@ -219,13 +219,13 @@ def run(epochs=20, lr=0.0005, batch_size=64):
     train_loader, test_loader = get_dataloader(batch_size)
 
     model = VisionTransformer(
-        image_size = (32, 32),
-        patch_size = (4, 4),
-        num_classes = 100,
+        image_size = (256, 256),
+        patch_size = (32, 32),
+        num_classes = 365,
         dim = 768,
         depth = 12,
         heads = 8,
-        mlp_dim = 1000,
+        mlp_dim = 2048,
         dropout = 0.1,
         emb_dropout = 0.1
     )
@@ -243,7 +243,7 @@ def run(epochs=20, lr=0.0005, batch_size=64):
         
         if test_acc >= best_test_acc:
             best_test_acc = test_acc
-            torch.save(model.state_dict(), './ViT_cifar10.pt')
+            torch.save(model.state_dict(), './ViT_places365.pt')
         
         scheduler.step()
 
