@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from sublayers import MultiHeadAttention, FeedForward, PositionalEncoding
-from utils import generate_mask
+from utils import generate_mask, make_trg_mask
 
 class ViT(nn.Module):
     def __init__(self, hid_dim=768):
@@ -26,53 +26,161 @@ class ViT(nn.Module):
         features = self.vit(pixel_values=x).last_hidden_state
         return self.proj(features)
 
-class DecoderLayer(nn.Module):
-    def __init__(self, d_model, heads, dropout=0.1):
-        super().__init__()
+# class DecoderLayer(nn.Module):
+#     def __init__(self, d_model, heads, dropout=0.1):
+#         super().__init__()
 
-        self.ln1 = nn.LayerNorm(d_model)
-        self.ln2 = nn.LayerNorm(d_model)
-        self.ln3 = nn.LayerNorm(d_model)
+#         self.ln1 = nn.LayerNorm(d_model)
+#         self.ln2 = nn.LayerNorm(d_model)
+#         self.ln3 = nn.LayerNorm(d_model)
+        
+#         self.dropout = nn.Dropout(dropout)
+        
+#         self.attn_1 = MultiHeadAttention(heads, d_model, dropout=dropout)
+#         self.attn_2 = MultiHeadAttention(heads, d_model, dropout=dropout)
+#         self.ffn = FeedForward(d_model, dropout=dropout)
+
+#     def forward(self, x, features, src_mask, trg_mask):
+        
+#         _x = x
+#         x = x + self.attn_1(x, x, x, trg_mask)
+#         x = self.dropout(self.ln1(x + _x))
+
+#         _x = x
+#         x = x + self.attn_2(x, features, features, src_mask)
+#         x = self.dropout(self.ln2(x + _x))
+
+#         _x = x
+#         x = self.ffn(x)
+#         x = self.dropout(self.ln3(x + _x))
+
+#         return x
+
+# class Decoder(nn.Module):
+#     def __init__(self, vocab_size, d_model, n_layers, heads, dropout):
+#         super().__init__()
+
+#         self.n_layers = n_layers
+#         self.embed = nn.Embedding(vocab_size, d_model)
+#         self.pe = PositionalEncoding(d_model, dropout=dropout)
+#         self.layers = nn.ModuleList([DecoderLayer(d_model, heads, dropout) for _ in range(n_layers)])
+#         self.norm = nn.LayerNorm(d_model)
+
+#     def forward(self, trg, features, src_mask, trg_mask):
+
+#         x = self.embed(trg)
+#         x = self.pe(x)
+#         for i in range(self.n_layers):
+#             x = self.layers[i](x, features, src_mask, trg_mask)
+#         return self.norm(x)s
+
+class PositionwiseFeedforwardLayer(nn.Module):
+    def __init__(self, hid_dim, dropout):
+        super().__init__()
+        
+        self.fc_1 = nn.Linear(hid_dim, hid_dim)
+        self.fc_2 = nn.Linear(hid_dim, hid_dim)
+        self.dropout = nn.Dropout(dropout)
+        
+    def forward(self, x):
+        #x = [batch size, seq len, hid dim]
+        x = self.dropout(torch.relu(self.fc_1(x)))
+        #x = [batch size, seq len, pf dim]
+        x = self.fc_2(x)
+        #x = [batch size, seq len, hid dim]
+        return x
+
+class DecoderLayer(nn.Module):
+    def __init__(self, hid_dim, n_heads, dropout, device):
+        super().__init__()
+        
+        self.self_attn_layer_norm = nn.LayerNorm(hid_dim)
+        self.enc_attn_layer_norm = nn.LayerNorm(hid_dim)
+        self.ff_layer_norm = nn.LayerNorm(hid_dim)
+        self.self_attention = MultiHeadAttention(hid_dim, n_heads, dropout, device)
+        self.encoder_attention = MultiHeadAttention(hid_dim, n_heads, dropout, device)
+        self.positionwise_feedforward = PositionwiseFeedforwardLayer(hid_dim, dropout)
+        self.dropout = nn.Dropout(dropout)
+        
+    def forward(self, trg, enc_src, trg_mask, src_mask):
+        
+        #trg = [batch size, trg len, hid dim]
+        #enc_src = [batch size, src len, hid dim]
+        #trg_mask = [batch size, 1, trg len, trg len]
+        #src_mask = [batch size, 1, 1, src len]
+        
+        #self attention
+        _trg, _ = self.self_attention(trg, trg, trg, trg_mask)
+        
+        #dropout, residual connection and layer norm
+        trg = self.self_attn_layer_norm(trg + self.dropout(_trg))
+            
+        #trg = [batch size, trg len, hid dim]
+            
+        #encoder attention
+        _trg, attention = self.encoder_attention(trg, enc_src, enc_src, src_mask)
+        
+        #dropout, residual connection and layer norm
+        trg = self.enc_attn_layer_norm(trg + self.dropout(_trg))
+                    
+        #trg = [batch size, trg len, hid dim]
+        
+        #positionwise feedforward
+        _trg = self.positionwise_feedforward(trg)
+        
+        #dropout, residual and layer norm
+        trg = self.ff_layer_norm(trg + self.dropout(_trg))
+        
+        #trg = [batch size, trg len, hid dim]
+        #attention = [batch size, n heads, trg len, src len]
+        
+        return trg, attention
+
+class Decoder(nn.Module):
+    def __init__(self, vocab_size, hid_dim, n_layers, n_heads, dropout, device='cpu', max_length=20):
+        super().__init__()
+        
+        self.device = device
+        
+        self.tok_embedding = nn.Embedding(vocab_size, hid_dim)
+        self.pos_embedding = nn.Embedding(max_length, hid_dim)
+        
+        self.layers = nn.ModuleList([DecoderLayer(hid_dim, n_heads, dropout, device)
+                                     for _ in range(n_layers)])
+        
+        self.fc_out = nn.Linear(hid_dim, vocab_size)
         
         self.dropout = nn.Dropout(dropout)
         
-        self.attn_1 = MultiHeadAttention(heads, d_model, dropout=dropout)
-        self.attn_2 = MultiHeadAttention(heads, d_model, dropout=dropout)
-        self.ffn = FeedForward(d_model, dropout=dropout)
-
-    def forward(self, x, features, src_mask, trg_mask):
+        self.scale = torch.sqrt(torch.FloatTensor([hid_dim])).to(device)
         
-        _x = x
-        x = x + self.attn_1(x, x, x, trg_mask)
-        x = self.dropout(self.ln1(x + _x))
-
-        _x = x
-        x = x + self.attn_2(x, features, features, src_mask)
-        x = self.dropout(self.ln2(x + _x))
-
-        _x = x
-        x = self.ffn(x)
-        x = self.dropout(self.ln3(x + _x))
-
-        return x
-
-class Decoder(nn.Module):
-    def __init__(self, vocab_size, d_model, n_layers, heads, dropout):
-        super().__init__()
-
-        self.n_layers = n_layers
-        self.embed = nn.Embedding(vocab_size, d_model)
-        self.pe = PositionalEncoding(d_model, dropout=dropout)
-        self.layers = nn.ModuleList([DecoderLayer(d_model, heads, dropout) for _ in range(n_layers)])
-        self.norm = nn.LayerNorm(d_model)
-
-    def forward(self, trg, features, src_mask, trg_mask):
-
-        x = self.embed(trg)
-        x = self.pe(x)
-        for i in range(self.n_layers):
-            x = self.layers[i](x, features, src_mask, trg_mask)
-        return self.norm(x)
+    def forward(self, trg, enc_src, trg_mask, src_mask):
+        
+        #trg = [batch size, trg len]
+        #enc_src = [batch size, src len, hid dim]
+        #trg_mask = [batch size, 1, trg len, trg len]
+        #src_mask = [batch size, 1, 1, src len]
+                
+        batch_size = trg.size(0)
+        trg_len = trg.size(1)
+        
+        pos = torch.arange(0, trg_len).unsqueeze(0).repeat(batch_size, 1).to(self.device)
+                            
+        #pos = [batch size, trg len]
+            
+        trg = self.dropout((self.tok_embedding(trg) * self.scale) + self.pos_embedding(pos))
+                
+        #trg = [batch size, trg len, hid dim]
+        
+        for layer in self.layers:
+            trg, attention = layer(trg, enc_src, trg_mask, src_mask)
+        
+        #trg = [batch size, trg len, hid dim]
+        #attention = [batch size, n heads, trg len, src len]
+        output = self.fc_out(trg)
+        #output = [batch size, trg len, output dim]
+            
+        return output, attention
 
 class Transformer(nn.Module):
 
@@ -85,18 +193,20 @@ class Transformer(nn.Module):
         self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, img, tgt, tgt_mask):
-    
+
         enc_out = self.encoder(img)
         batch_size, patch_num, _ = enc_out.shape
 
-        src_mask = torch.ones(batch_size, patch_num).to(enc_out.device)
-        d_output = self.decoder(tgt, enc_out, src_mask, tgt_mask)
-        output = self.proj(d_output)
-        return self.softmax(output)
+        src_mask = torch.ones(batch_size, patch_num).unsqueeze(1).unsqueeze(2).to(enc_out.device)
+
+        d_output, attn_w = self.decoder(tgt, enc_out, tgt_mask, src_mask)
+        return self.softmax(d_output)
+
 
 # img = torch.rand(4, 3, 224, 224)
 # tgt = torch.ones(4, 20, dtype=torch.long)
-# mask = tgt
-# model = Transformer(vocab_size=20, d_model=768, n_layers=4, heads=4, dropout=0.1)
-# pred = model(img, tgt, mask)
+# mask = make_trg_mask(tgt)
 
+# model = Transformer(2, 768, 8, 12, 0.1)
+# pred = model(img, tgt, mask)
+# print(pred.shape)

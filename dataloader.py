@@ -12,13 +12,15 @@ class Tokenizer:
 
 
 class ToyDataset(Dataset):
-    def __init__(self):
+    def __init__(self, length=1000):
         
         super().__init__()
-        self.postive = torch.tensor([1,2,3,4,5,6,7,8,9,10])
+
+        self.l = length
+        self.postive = torch.tensor([11,1,2,3,4,5,6,7,8,9,10,12])
         self.pos_img = torch.triu(torch.rand(3, 224, 224))
 
-        self.negative = torch.tensor([10,9,8,7,6,5,4,3,2,1])
+        self.negative = torch.tensor([11,10,9,8,7,6,5,4,3,2,1,12])
         self.neg_img = torch.tril(torch.rand(3, 224, 224))
 
     def __getitem__(self, idx):
@@ -28,4 +30,4 @@ class ToyDataset(Dataset):
             return self.negative, self.neg_img
     
     def __len__(self):
-        return 500
+        return self.l
