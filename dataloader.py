@@ -18,10 +18,10 @@ class ToyDataset(Dataset):
 
         self.l = length
         self.postive = torch.tensor([11,1,2,3,4,5,6,7,8,9,10,12])
-        self.pos_img = torch.triu(torch.rand(3, 224, 224))
+        self.pos_img = torch.ones(3, 224, 224)*20
 
         self.negative = torch.tensor([11,10,9,8,7,6,5,4,3,2,1,12])
-        self.neg_img = torch.tril(torch.rand(3, 224, 224))
+        self.neg_img = torch.ones(3, 224, 224)*200
 
     def __getitem__(self, idx):
         if idx % 2 == 0:

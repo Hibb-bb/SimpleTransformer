@@ -23,7 +23,7 @@ testset = ToyDataset(length=10)
 train_loader = DataLoader(trainset, batch_size=64, shuffle=True)
 test_loader = DataLoader(testset, batch_size=1, shuffle=False)
 model.train()
-for i in range(1):
+for i in range(5):
 
     p_bar = tqdm(train_loader)
     step, total_loss = 0, 0
@@ -50,19 +50,21 @@ def inference(model, loader):
     model.eval()
     for tgt, src in loader:
         src, tgt = src.cuda(), tgt.cuda()
-        src_mask = torch.ones(src.size(0), src.size(1)).cuda()
+        # src_mask = torch.ones(src.size(0), src.size(1)).cuda()
         enc_out = model.encoder(src)
         
+        src_mask = torch.ones(enc_out.size(0), enc_out.size(1)).unsqueeze(1).unsqueeze(2).cuda()
+
         pred_idx = [11]
         for i in range(10):
             tgt_tensor = torch.LongTensor(pred_idx).unsqueeze(0).cuda()
             tgt_mask = make_trg_mask(tgt_tensor)
-            print('tgt input, tgt mask', tgt_tensor.shape, tgt_mask.shape)
+            # print('tgt input, tgt mask', tgt_tensor.shape, tgt_mask.shape)
             with torch.no_grad():
                 d_output, attn_weight = model.decoder(tgt_tensor, enc_out, tgt_mask, src_mask)
-                pred_token = d_output.argmax(-1)[:, -1].item()
+                pred_token = d_output[:, 1:].argmax(-1)[:, -1].item()
                 pred_idx.append(pred_token)
-                print(pred_token)
+                # print(pred_token)
                 if pred_token == 12:
                     break
         print('gold', tgt.tolist())
