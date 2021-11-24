@@ -192,6 +192,7 @@ def test(model, test_loader, device, epoch, log_freq=10):
 
 def get_dataloader(batch_size):
     transform = transforms.Compose([
+        transforms.Resize([256, 256]),
         transforms.RandomCrop(256, padding=4),
         transforms.RandomHorizontalFlip(),
         transforms.RandomGrayscale(p=0.2),
@@ -200,16 +201,17 @@ def get_dataloader(batch_size):
         ])
 
     transform_test = transforms.Compose([
+        transforms.Resize([256, 256]),
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
 
-    trainset = torchvision.datasets.Places365(root='./data', split='train-standard', small=True,
+    trainset = torchvision.datasets.Places365(root='./data_256_standard ', small=True ,
                                             download=True, transform=transform)
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                             shuffle=True, num_workers=0)
 
-    testset = torchvision.datasets.Places365(root='./data', split='val', small=True,
+    testset = torchvision.datasets.Places365(root='./data_256_standard', split='val', small=True,
                                         download=True, transform=transform_test)
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                             shuffle=False, num_workers=0)
@@ -226,7 +228,7 @@ def run(epochs=20, lr=0.0005, batch_size=64):
     model = VisionTransformer(
         image_size = (256, 256),
         patch_size = (32, 32),
-        num_classes = 365,
+        num_classes = 10177,
         dim = 768,
         depth = 12,
         heads = 8,

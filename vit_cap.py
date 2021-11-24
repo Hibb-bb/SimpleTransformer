@@ -137,7 +137,7 @@ class DecoderLayer(nn.Module):
         return trg, attention
 
 class Decoder(nn.Module):
-    def __init__(self, vocab_size, hid_dim, n_layers, n_heads, dropout, device='cpu', max_length=20):
+    def __init__(self, vocab_size, hid_dim, n_layers, n_heads, dropout, device='cuda', max_length=20):
         super().__init__()
         
         self.device = device
