@@ -11,22 +11,25 @@ tgt = torch.ones(4, 20, dtype=torch.long)
 mask = make_trg_mask(tgt)
 
 model = Transformer(13, 768, 8, 12, 0.1)
-pred = model(img, tgt, mask)
-print(pred.shape)
-opt = torch.optim.Adam(model.parameters(), 0.0001)
+
+model = model.cuda()
+
+# print(pred.shape)
+opt = torch.optim.Adam(model.parameters(), 0.00005)
 cri = nn.CrossEntropyLoss()
 
-trainset = ToyDataset()
-testset = ToyDataset(length=20)
-train_loader = DataLoader(trainset, batch_size=4, shuffle=True)
-test_loader = DataLoader(testset, batch_size=4, shuffle=False)
-
-for i in range(5):
+trainset = ToyDataset(length=2000)
+testset = ToyDataset(length=10)
+train_loader = DataLoader(trainset, batch_size=64, shuffle=True)
+test_loader = DataLoader(testset, batch_size=1, shuffle=False)
+model.train()
+for i in range(1):
 
     p_bar = tqdm(train_loader)
     step, total_loss = 0, 0
     for tgt, img in p_bar:    
         opt.zero_grad()
+        tgt, img = tgt.cuda(), img.cuda()
         tgt_mask = make_trg_mask(tgt)
         pred = model(img, tgt, tgt_mask)
 
@@ -44,21 +47,27 @@ for i in range(5):
 
 def inference(model, loader):
 
+    model.eval()
     for tgt, src in loader:
-        src, tgt = src.to(model.device), tgt.to(model.device)
-        src_mask = torch.ones(src.size(0), src.size(1)).to(model.device)
+        src, tgt = src.cuda(), tgt.cuda()
+        src_mask = torch.ones(src.size(0), src.size(1)).cuda()
         enc_out = model.encoder(src)
         
         pred_idx = [11]
         for i in range(10):
-            tgt_tensor = torch.LongTensor(pred_idx).unsqueeze(0).to(model.device)
+            tgt_tensor = torch.LongTensor(pred_idx).unsqueeze(0).cuda()
             tgt_mask = make_trg_mask(tgt_tensor)
+            print('tgt input, tgt mask', tgt_tensor.shape, tgt_mask.shape)
             with torch.no_grad():
-                d_output, attn_weight = model.decoder(tgt, enc_out, src_mask, tgt_mask)
+                d_output, attn_weight = model.decoder(tgt_tensor, enc_out, tgt_mask, src_mask)
                 pred_token = d_output.argmax(-1)[:, -1].item()
                 pred_idx.append(pred_token)
+                print(pred_token)
                 if pred_token == 12:
                     break
         print('gold', tgt.tolist())
         print('pred', pred_idx)
+        print('=====================')
+
+inference(model, test_loader)
     
