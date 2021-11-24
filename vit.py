@@ -6,6 +6,11 @@ import torchvision.transforms as transforms
 
 from tqdm import tqdm
 
+from transformers import ViTFeatureExtractor
+
+feature_extractor = ViTFeatureExtractor.from_pretrained('google/vit-base-patch16-224')
+
+
 
 class FeedForward(nn.Module):
     def __init__(self, dim, hidden_dim, dropout = 0.):
