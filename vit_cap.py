@@ -15,6 +15,8 @@ import torch.nn.functional as F
 from sublayers import MultiHeadAttention, FeedForward, PositionalEncoding
 from utils import generate_mask, make_trg_mask
 
+from bpemb import BPEmb
+
 class ViT(nn.Module):
     def __init__(self, hid_dim=768):
         super(ViT, self).__init__()
@@ -137,11 +139,20 @@ class DecoderLayer(nn.Module):
         return trg, attention
 
 class Decoder(nn.Module):
-    def __init__(self, vocab_size, hid_dim, n_layers, n_heads, dropout, device='cuda', max_length=20):
+    def __init__(self, vocab_size, hid_dim, n_layers, n_heads, dropout, device='cpu', max_length=20):
         super().__init__()
         
         self.device = device
         
+        bpemb = BPEmb(lang='en', vs=25000, dim=300)
+        emb_w = torch.FloatTensor(bpemb.emb.vectors)
+        extra_tokens = torch.rand(2, 300)
+        emb_w = torch.cat((emb_w, extra_tokens), dim=0)
+        
+        self.tok_embedding = nn.Sequential(
+            nn.Embedding.from_pretrained(emb_w),
+            nn.Linear(300, hid_dim)
+        )
         self.tok_embedding = nn.Embedding(vocab_size, hid_dim)
         self.pos_embedding = nn.Embedding(max_length, hid_dim)
         
@@ -195,18 +206,11 @@ class Transformer(nn.Module):
     def forward(self, img, tgt, tgt_mask):
 
         enc_out = self.encoder(img)
-        batch_size, patch_num, _ = enc_out.shape
+        batch_size, patch_num, hid = enc_out.shape
+        print('enc out', enc_out.shape)
 
         src_mask = torch.ones(batch_size, patch_num).unsqueeze(1).unsqueeze(2).to(enc_out.device)
+        print('src mask',src_mask.shape)
 
         d_output, attn_w = self.decoder(tgt, enc_out, tgt_mask, src_mask)
         return self.softmax(d_output)
-
-
-# img = torch.rand(4, 3, 224, 224)
-# tgt = torch.ones(4, 20, dtype=torch.long)
-# mask = make_trg_mask(tgt)
-
-# model = Transformer(2, 768, 8, 12, 0.1)
-# pred = model(img, tgt, mask)
-# print(pred.shape)

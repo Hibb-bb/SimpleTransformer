@@ -66,7 +66,7 @@ from bpemb.util import sentencepiece_load, load_word2vec_file
 from bpemb import BPEmb
 import torch
 bpemb = BPEmb(lang='en', vs=25000)
-bpemb.emb = load_word2vec_file('./model/data/en/en.wiki.bpe.vs25000.d200.w2v.bin')
+# bpemb.emb = load_word2vec_file('./model/data/en/en.wiki.bpe.vs25000.d200.w2v.bin')
 emb_w = torch.FloatTensor(bpemb.emb.vectors)
 print(emb_w.shape)
-clf = Classifier(25000, 200, 4, 4, emb_weight=emb_w)
+# clf = Classifier(25000, 200, 4, 4, emb_weight=emb_w)
