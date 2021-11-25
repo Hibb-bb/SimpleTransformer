@@ -6,7 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 from utils import *
 
-from dataset import get_loader
+from loader import get_loader
 import argparse
 from torchvision import transforms
 
@@ -26,7 +26,11 @@ def main(args):
         transforms.Normalize((0.485, 0.456, 0.406), 
                              (0.229, 0.224, 0.225))])
 
-    data_loader = get_loader(args.image_dir, args.caption_path, 
+    with open(args.vocab_path, 'rb') as f:
+        vocab = pickle.load(f)
+    
+    # Build data loader
+    data_loader = get_loader(args.image_dir, args.caption_path, vocab, 
                              transform, args.batch_size,
                              shuffle=True, num_workers=args.num_workers) 
 

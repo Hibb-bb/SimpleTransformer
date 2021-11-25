@@ -85,7 +85,7 @@ class MultiHeadAttention(nn.Module):
         energy = torch.matmul(Q, K.permute(0, 1, 3, 2)) / self.scale
         
         #energy = [batch size, n heads, query len, key len]
-        print('eng', energy.shape, 'mask', mask.shape)
+        # print('eng', energy.shape, 'mask', mask.shape)
         if mask is not None:
             energy = energy.masked_fill(mask == 0, -1e10)
         

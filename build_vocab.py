@@ -4,6 +4,7 @@ import argparse
 from collections import Counter
 from pycocotools.coco import COCO
 
+nltk.download('punkt')
 
 class Vocabulary(object):
     """Simple vocabulary wrapper."""

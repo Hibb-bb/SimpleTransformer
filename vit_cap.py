@@ -139,18 +139,18 @@ class DecoderLayer(nn.Module):
         return trg, attention
 
 class Decoder(nn.Module):
-    def __init__(self, vocab_size, hid_dim, n_layers, n_heads, dropout, device='cpu', max_length=20):
+    def __init__(self, vocab_size, hid_dim, n_layers, n_heads, dropout, device='cuda', max_length=100):
         super().__init__()
         
         self.device = device
         
-        bpemb = BPEmb(lang='en', vs=25000, dim=300)
+        bpemb = BPEmb(lang='en', vs=25000, dim=300, add_pad_emb=True)
         emb_w = torch.FloatTensor(bpemb.emb.vectors)
         extra_tokens = torch.rand(2, 300)
         emb_w = torch.cat((emb_w, extra_tokens), dim=0)
-        
+        print('emb weight shape', emb_w.shape) 
         self.tok_embedding = nn.Sequential(
-            nn.Embedding.from_pretrained(emb_w),
+            nn.Embedding.from_pretrained(emb_w, padding_idx=0),
             nn.Linear(300, hid_dim)
         )
         self.tok_embedding = nn.Embedding(vocab_size, hid_dim)
@@ -207,10 +207,10 @@ class Transformer(nn.Module):
 
         enc_out = self.encoder(img)
         batch_size, patch_num, hid = enc_out.shape
-        print('enc out', enc_out.shape)
+        # print('enc out', enc_out.shape)
 
         src_mask = torch.ones(batch_size, patch_num).unsqueeze(1).unsqueeze(2).to(enc_out.device)
-        print('src mask',src_mask.shape)
+        # print('src mask',src_mask.shape)
 
         d_output, attn_w = self.decoder(tgt, enc_out, tgt_mask, src_mask)
         return self.softmax(d_output)
